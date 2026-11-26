@@ -1,0 +1,55 @@
+x-go-service: &go-service
+  image: docker.io/library/golang:1.26-bookworm
+  working_dir: /workspace
+  environment:
+    CGO_ENABLED: "1"
+    GOPROXY: https://proxy.golang.org,direct
+    GOSUMDB: sum.golang.org
+    DATABASE_URL: postgres://lathe@db:5432/lathe?sslmode=disable
+    PGPASSWORD: ${LATHE_DB_PASSWORD:?Set LATHE_DB_PASSWORD in .env}
+  volumes:
+    - .:/workspace:ro
+    - go-modules:/go/pkg/mod
+    - go-build:/root/.cache/go-build
+
+services:
+  db:
+    image: docker.io/library/postgres:18-alpine
+    environment:
+      POSTGRES_USER: lathe
+      POSTGRES_DB: lathe
+      POSTGRES_PASSWORD: ${LATHE_DB_PASSWORD:?Set LATHE_DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "lathe", "-d", "lathe"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *go-service
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-ec", "go build -mod=readonly -o /tmp/lathe ./apps/api/cmd/lathe && exec /tmp/lathe migrate"]
+
+  api:
+    <<: *go-service
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["sh", "-ec", "go build -mod=readonly -o /tmp/lathe ./apps/api/cmd/lathe && exec /tmp/lathe serve"]
+    ports:
+      - "127.0.0.1:${LATHE_HTTP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 2m
+
+volumes:
+  postgres-data:
+  go-modules:
+  go-build:

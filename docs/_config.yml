@@ -1,0 +1,6 @@
+title: 母版
+description: 母版用户使用手册
+lang: zh-CN
+theme: jekyll-theme-cayman
+plugins:
+  - jekyll-relative-links
