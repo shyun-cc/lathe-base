@@ -15,4 +15,13 @@ curl -fsS http://127.0.0.1:8080/ready
 
 端口有自定义配置时，将命令中的 `8080` 换成配置值。启动失败时，在源码根目录运行 `docker compose ps -a` 和 `docker compose logs` 查看服务状态与日志。
 
+如需办理业务，在源码根目录为 API 生成本地令牌。保留已有的 `.env` 内容，并避免重复添加同名配置。
+
+```sh
+(umask 077; printf 'LATHE_API_TOKEN=%s\n' "$(openssl rand -hex 32)" >> .env)
+docker compose up -d --wait
+```
+
+将 `LATHE_API_TOKEN` 的值配置到业务客户端的 Bearer 认证设置中。业务操作见[业务操作顺序](workflow.md)。令牌授予业务访问权限，请与数据库密码一同妥善保管。
+
 完成试用后，运行 `docker compose down` 停止服务并保留数据卷。参阅[部署指南](deployment.md)了解端口和数据卷设置。

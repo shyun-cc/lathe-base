@@ -1,7 +1,7 @@
 x-go-service: &go-service
   image: docker.io/library/golang:1.26-bookworm
   working_dir: /workspace
-  environment:
+  environment: &go-environment
     CGO_ENABLED: "1"
     GOPROXY: https://proxy.golang.org,direct
     GOSUMDB: sum.golang.org
@@ -36,6 +36,9 @@ services:
 
   api:
     <<: *go-service
+    environment:
+      <<: *go-environment
+      LATHE_API_TOKEN: ${LATHE_API_TOKEN:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

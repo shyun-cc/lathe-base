@@ -14,10 +14,7 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/shyun-cc/shw-gf-lib/migrate"
 	"github.com/shyun-cc/shw-gf-lib/response"
-
-	"github.com/shyun-cc/lathe-base/migrations"
 )
 
 func main() {
@@ -42,15 +39,7 @@ func run(ctx context.Context, args []string) error {
 	defer db.Close()
 
 	if args[0] == "migrate" {
-		runner, err := migrate.New(migrate.Config{
-			FS:      migrations.Files,
-			Dialect: migrate.DialectPostgres,
-			DB:      func() (*sql.DB, error) { return db, nil },
-		})
-		if err != nil {
-			return err
-		}
-		return runner.Up(ctx)
+		return migrateUp(ctx, db)
 	}
 
 	port := os.Getenv("PORT")
@@ -75,6 +64,7 @@ func run(ctx context.Context, args []string) error {
 		}
 		response.Success(r, map[string]string{"status": "ready"})
 	})
+	bindBusiness(server, db, os.Getenv("LATHE_API_TOKEN"))
 	if err := server.Start(); err != nil {
 		return err
 	}
