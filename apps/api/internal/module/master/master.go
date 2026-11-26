@@ -29,6 +29,10 @@ type resource struct {
 }
 
 func Bind(group *ghttp.RouterGroup, db *sql.DB) {
+	group.GET("/customers", apihttp.List(store.List(db, `SELECT id, code, name, active, is_customer, is_supplier
+		FROM master_parties WHERE id > $1 AND is_customer ORDER BY id LIMIT $2`)))
+	group.GET("/suppliers", apihttp.List(store.List(db, `SELECT id, code, name, active, is_customer, is_supplier
+		FROM master_parties WHERE id > $1 AND is_supplier ORDER BY id LIMIT $2`)))
 	for _, definition := range []struct{ path, table, key, extra string }{
 		{"/parties", "master_parties", "code", ", is_customer, is_supplier"},
 		{"/units", "master_units", "code", ""},

@@ -34,6 +34,8 @@ type service struct{ db *sql.DB }
 
 func Bind(group *ghttp.RouterGroup, db *sql.DB) {
 	s := service{db}
+	group.GET("/outsource-jobs", apihttp.List(store.List(db, `SELECT j.*, (SELECT max(received_on) FROM outsource_returns WHERE job_id = j.id) AS last_received_on
+		FROM outsource_jobs j WHERE id > $1 ORDER BY id LIMIT $2`)))
 	group.POST("/outsource-jobs", apihttp.Body(s.dispatch))
 	group.GET("/outsource-jobs/:id", apihttp.ID(s.get))
 	group.POST("/outsource-jobs/:id/returns", apihttp.BodyID(s.receive))

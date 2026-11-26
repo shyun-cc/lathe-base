@@ -4,7 +4,7 @@
 
 母版是為單一工廠、單一執行個體設計的開源 ERP 基礎，涵蓋基礎資料、銷售訂單、生產工單、委外加工、出貨、往來對帳、線下收付款、發票登錄與可設定的列印範本。
 
-v0.1 里程碑 2 提供由 GoFrame 和 [shw-gf-lib](https://github.com/shyun-cc/shw-gf-lib) 支援的 PostgreSQL 18 業務 API。可維護基礎資料，並依序處理銷售訂單、拆單、報工、委外、出貨、往來對帳、線下收支沖銷及發票登錄。響應式 Web 預計採用 Vue 3、TypeScript 與 [shw-wui](https://github.com/shyun-cc/shw-wui)。
+v0.1 使用 GoFrame、[shw-gf-lib](https://github.com/shyun-cc/shw-gf-lib) 與 PostgreSQL 18。響應式工作台使用 Vue 3、TypeScript 與 [shw-wui](https://github.com/shyun-cc/shw-wui)，可處理基礎資料、銷售、生產、出貨、往來結算與發票登錄，並預覽和列印銷售單、工單及送貨單。
 
 財務範圍涵蓋業務應收應付、往來對帳單、線下收支沖銷與發票登錄。支付服務、會計總帳與電子發票開立均在 v0.1 範圍之外。
 
@@ -21,7 +21,13 @@ curl -fsS http://127.0.0.1:8080/ready
 
 Compose 會在 API 啟動前套用內嵌遷移。`/health` 檢查 API 程序，`/ready` 檢查 PostgreSQL 連線。可在 `.env` 中設定 `LATHE_HTTP_PORT` 以更換本機連接埠。`docker compose down` 會停止服務並保留資料庫磁碟區。請保留該磁碟區使用的本機密碼。
 
-若要試用業務 API，先在 `.env` 設定 `LATHE_API_TOKEN`，再啟動或重新建立 API 服務。健康檢查無需權杖。詳見[使用手冊](docs/quickstart.md)。
+試用工作台前，請在 `.env` 設定 `LATHE_API_TOKEN` 並啟動或重新建立 API 服務。需要 Node.js 24 與 npm。執行下列指令後，開啟終端機顯示的網址並輸入執行個體權杖。自訂 API 連接埠及同源部署請參閱[使用手冊](docs/quickstart.md)。
+
+```sh
+cd apps/web
+npm ci
+npm run dev
+```
 
 ## 開發
 
@@ -32,6 +38,8 @@ gofmt -l apps/api migrations
 go vet ./...
 go test ./...
 ```
+
+在 `apps/web` 下執行 `npm ci`、`npm run typecheck`、`npm run lint` 與 `npm run build` 檢查前端。
 
 將 `LATHE_TEST_DATABASE_URL` 指向具建庫權限的隔離 PostgreSQL 18 測試環境，再執行 `go test ./...` 驗證完整流程。測試會建立並刪除自己使用的資料庫。
 

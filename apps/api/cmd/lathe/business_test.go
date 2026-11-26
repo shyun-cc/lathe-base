@@ -17,6 +17,8 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/shyun-cc/lathe-base/apps/api/internal/module/printing"
 )
 
 type fields map[string]any
@@ -131,6 +133,10 @@ func TestBusinessRequestValidation(t *testing.T) {
 	unauthorized := api
 	unauthorized.auth = "Bearer invalid"
 	unauthorized.call(t, "GET", "/parties", nil, 401)
+	unauthorized.call(t, "GET", "/session", nil, 401)
+	unauthorized.call(t, "GET", "/print-documents/sales-order/1", nil, 401)
+	api.call(t, "GET", "/session", nil, 200)
+	api.call(t, "GET", "/print-documents/unknown/1", nil, 400)
 	api.call(t, "GET", "/parties?limit=201", nil, 400)
 	api.call(t, "GET", "/parties/0?id=3", nil, 400)
 	api.call(t, "POST", "/parties", json.RawMessage(`{"code":"A","name":"a","unknown":true}`), 400)
@@ -294,6 +300,7 @@ func TestPostgresBusinessWorkflow(t *testing.T) {
 			t.Fatalf("shipment %d prices = %+v, want %d", shipment.id, detail.Lines, shipment.amount)
 		}
 	}
+	checkWorkbenchPrinting(t, api, order, work[0].ID, ship6)
 	arID := api.create(t, "/statements", statement("AR-1", customer, "receivable", shippedRest, ship6))
 	apID := api.create(t, "/statements", payable)
 	api.call(t, "POST", "/statements", statement("AR-2", customer, "receivable", ship6), 409)
@@ -344,6 +351,68 @@ func TestPostgresBusinessWorkflow(t *testing.T) {
 	secondSplit := pathID("/sales-order-lines", secondLine) + "/work-orders"
 	assertSingleSuccess(t, parallelPosts(api, secondSplit, split("WO-A6", "WO-A4"),
 		secondSplit, split("WO-B6", "WO-B4")))
+}
+
+func checkWorkbenchPrinting(t *testing.T, api testAPI, order, work, shipment int64) {
+	t.Helper()
+	definitions := readData[map[string]printing.Definition](t, api.call(t, "GET", "/print-definitions", nil, 200))
+	for _, document := range []struct {
+		kind, list, number, quantity string
+		id                           int64
+	}{
+		{"sales-order", "/sales-orders", "SO-1", "10", order},
+		{"work-order", "/work-orders", "WO-6", "6", work},
+		{"shipment", "/shipments", "SH-6", "6", shipment},
+	} {
+		list := readData[[]idResult](t, api.call(t, "GET", document.list+"?limit=1", nil, 200))
+		if len(list) != 1 || list[0].ID != document.id {
+			t.Fatalf("%s first list page = %+v", document.kind, list)
+		}
+		data := readData[struct {
+			Fields map[string]string
+			Rows   []map[string]string
+		}](t, api.call(t, "GET", pathID("/print-documents/"+document.kind, document.id), nil, 200))
+		if data.Fields["number"] != document.number || len(data.Rows) != 1 ||
+			data.Rows[0]["quantity"] != document.quantity || data.Rows[0]["product"] != "Example Part" {
+			t.Fatalf("%s print data = %+v", document.kind, data)
+		}
+		if len(definitions[document.kind].Default.Columns) == 0 {
+			t.Fatalf("%s has no built-in print template", document.kind)
+		}
+	}
+	api.call(t, "GET", "/print-documents/shipment/999999", nil, 404)
+	custom := definitions["sales-order"].Default
+	payload := fields{"document_type": "sales-order", "code": "example", "name": "Example template", "configuration": custom}
+	first := api.create(t, "/print-templates", payload)
+	custom.Title = "Example landscape"
+	custom.Orientation = "landscape"
+	payload["configuration"] = custom
+	second := api.create(t, "/print-templates", payload)
+	custom.Columns[0].Field = "unknown_field"
+	payload["configuration"] = custom
+	api.call(t, "POST", "/print-templates", payload, 400)
+
+	publish := func(id int64) {
+		t.Helper()
+		api.call(t, "POST", pathID("/print-templates", id)+"/publish", nil, 200)
+	}
+	publish(first)
+	publish(second)
+	verify := func(firstActive, secondActive bool) {
+		t.Helper()
+		versions := readData[[]struct {
+			ID      int64
+			Version int
+			Active  bool
+		}](t, api.call(t, "GET", "/print-templates", nil, 200))
+		if len(versions) != 2 || versions[0].ID != first || versions[0].Version != 1 || versions[0].Active != firstActive ||
+			versions[1].ID != second || versions[1].Version != 2 || versions[1].Active != secondActive {
+			t.Fatalf("unexpected print template history %+v", versions)
+		}
+	}
+	verify(false, true)
+	publish(first)
+	verify(true, false)
 }
 
 func checkBalance(t *testing.T, api testAPI, path string, id, amount, remaining int64) {

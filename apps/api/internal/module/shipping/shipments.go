@@ -29,6 +29,7 @@ type service struct{ db *sql.DB }
 
 func Bind(group *ghttp.RouterGroup, db *sql.DB) {
 	s := service{db}
+	group.GET("/shipments", apihttp.List(store.List(db, `SELECT * FROM shipping_shipments WHERE id > $1 ORDER BY id LIMIT $2`)))
 	group.POST("/shipments", apihttp.Body(s.create))
 	group.GET("/shipments/:id", apihttp.ID(s.get))
 	group.POST("/shipments/:id/confirm", apihttp.BodyID(s.confirm))
@@ -64,7 +65,8 @@ func (s service) create(ctx context.Context, input shipmentInput) (store.ID, err
 func (s service) get(ctx context.Context, id int64) (json.RawMessage, error) {
 	return store.JSON(ctx, s.db, `
 		SELECT to_jsonb(s) || jsonb_build_object('lines', coalesce(
-			(SELECT jsonb_agg(l ORDER BY l.sales_order_line_id) FROM shipping_shipment_lines l
+			(SELECT jsonb_agg(to_jsonb(l) || jsonb_build_object('product_name', ol.product_name) ORDER BY ol.line_no)
+				FROM shipping_shipment_lines l JOIN sales_order_lines ol ON ol.id = l.sales_order_line_id
 				WHERE l.shipment_id = s.id), '[]'))
 		FROM shipping_shipments s WHERE s.id = $1`, id)
 }

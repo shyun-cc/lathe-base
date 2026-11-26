@@ -52,6 +52,12 @@ func run(ctx context.Context, args []string) error {
 	addr := net.JoinHostPort("", port)
 	server := ghttp.GetServer("lathe")
 	server.SetAddr(addr)
+	if root := os.Getenv("LATHE_WEB_ROOT"); root != "" {
+		if info, err := os.Stat(root); err != nil || !info.IsDir() {
+			return errors.New("LATHE_WEB_ROOT must point to the built Web directory")
+		}
+		server.SetServerRoot(root)
+	}
 	server.BindHandler("GET:/health", func(r *ghttp.Request) {
 		response.Success(r, map[string]string{"status": "ok"})
 	})

@@ -4,7 +4,7 @@
 
 Lathe Base is an open-source ERP foundation for a single factory. It covers master data, sales orders, work orders, outsourced operations, shipments, counterparty reconciliation, offline receipts and disbursements, invoice registration, and configurable print templates.
 
-Version 0.1 milestone 2 provides GoFrame business APIs backed by PostgreSQL 18 and [shw-gf-lib](https://github.com/shyun-cc/shw-gf-lib). Maintain master data and process orders, work order splits, production reports, outsourcing, shipments, reconciliation, offline cash allocation, and invoice registration. The planned responsive Web stack is Vue 3, TypeScript, and [shw-wui](https://github.com/shyun-cc/shw-wui).
+Version 0.1 uses GoFrame, [shw-gf-lib](https://github.com/shyun-cc/shw-gf-lib), and PostgreSQL 18. The responsive workspace uses Vue 3, TypeScript, and [shw-wui](https://github.com/shyun-cc/shw-wui). It covers master records, sales, production, shipping, reconciliation, and invoice registration, with configurable previews for sales orders, work orders, and delivery notes.
 
 Financial scope covers operational receivables and payables, reconciliation statements, offline cash allocation, and invoice records. Payment processing, a general ledger, and electronic invoice issuance are outside the scope of v0.1.
 
@@ -21,7 +21,13 @@ curl -fsS http://127.0.0.1:8080/ready
 
 Compose applies the embedded migrations before starting the API. `/health` reports process health and `/ready` checks PostgreSQL connectivity. Set `LATHE_HTTP_PORT` in `.env` to use another local port. `docker compose down` stops the stack and keeps the database volume. Keep the generated local password with that volume.
 
-To use the business API, set `LATHE_API_TOKEN` in `.env` before starting or recreating the API service. Health checks are available without the token. See the [user guide](docs/quickstart.md).
+Set `LATHE_API_TOKEN` in `.env` before starting or recreating the API service. Install Node.js 24 and npm, run the commands below, then open the displayed URL and sign in with the instance token. See the [user guide](docs/quickstart.md) for custom API ports and same-origin hosting.
+
+```sh
+cd apps/web
+npm ci
+npm run dev
+```
 
 ## Work on the code
 
@@ -32,6 +38,8 @@ gofmt -l apps/api migrations
 go vet ./...
 go test ./...
 ```
+
+From `apps/web`, run `npm ci`, `npm run typecheck`, `npm run lint`, and `npm run build` to check the Web app.
 
 Set `LATHE_TEST_DATABASE_URL` to a dedicated PostgreSQL 18 test instance with permission to create databases, then run `go test ./...` to exercise the full workflow. The test creates and drops its own database.
 

@@ -22,6 +22,16 @@ curl -fsS http://127.0.0.1:8080/ready
 docker compose up -d --wait
 ```
 
-将 `LATHE_API_TOKEN` 的值配置到业务客户端的 Bearer 认证设置中。业务操作见[业务操作顺序](workflow.md)。令牌授予业务访问权限，请与数据库密码一同妥善保管。
+安装 Node.js 24 和 npm，从仓库根目录执行以下命令。
+
+```sh
+cd apps/web
+npm ci
+npm run dev
+```
+
+打开终端显示的工作台地址，输入 `.env` 中 `LATHE_API_TOKEN` 的值。如果 API 使用了其他本地端口，例如 8090，以 `LATHE_API_ORIGIN=http://127.0.0.1:8090 npm run dev` 启动工作台。令牌赋予实例的全部业务访问权限，请与数据库密码一同保管。使用共享设备后请退出登录。
+
+按[业务操作顺序](workflow.md)录入和流转单据，或查看[打印与模板配置](printing.md)。
 
 完成试用后，运行 `docker compose down` 停止服务并保留数据卷。参阅[部署指南](deployment.md)了解端口和数据卷设置。

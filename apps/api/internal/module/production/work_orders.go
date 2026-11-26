@@ -37,6 +37,7 @@ type service struct{ db *sql.DB }
 func Bind(group *ghttp.RouterGroup, db *sql.DB) {
 	s := service{db}
 	group.POST("/sales-order-lines/:id/work-orders", apihttp.BodyID(s.split))
+	group.GET("/work-orders", apihttp.List(store.List(db, `SELECT * FROM production_work_orders WHERE id > $1 ORDER BY id LIMIT $2`)))
 	group.GET("/work-orders/:id", apihttp.ID(s.get))
 	group.POST("/work-orders/:id/reports", apihttp.BodyID(s.report))
 	group.POST("/work-orders/:id/complete", apihttp.BodyID(s.complete))

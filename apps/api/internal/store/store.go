@@ -61,3 +61,10 @@ func RequireReference(err error, message string) error {
 	}
 	return err
 }
+
+// List wraps a bounded query ordered by a unique id for cursor pagination.
+func List(db Queryer, query string) func(context.Context, int64, int64) (json.RawMessage, error) {
+	return func(ctx context.Context, after, limit int64) (json.RawMessage, error) {
+		return JSON(ctx, db, `SELECT coalesce(jsonb_agg(page ORDER BY id), '[]') FROM (`+query+`) page`, after, limit)
+	}
+}

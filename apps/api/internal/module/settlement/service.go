@@ -58,8 +58,12 @@ type service struct{ db *sql.DB }
 
 func Bind(group *ghttp.RouterGroup, db *sql.DB) {
 	s := service{db}
+	group.GET("/statements", apihttp.List(store.List(db, `SELECT * FROM settlement_statements WHERE id > $1 ORDER BY id LIMIT $2`)))
 	group.POST("/statements", apihttp.Body(s.createStatement))
 	group.GET("/statements/:id", apihttp.ID(s.statement))
+	group.GET("/cash-entries", apihttp.List(store.List(db, `SELECT c.*, c.amount_minor - coalesce(
+		(SELECT sum(a.amount_minor) FROM settlement_allocations a WHERE a.cash_entry_id = c.id), 0) AS remaining_minor
+		FROM settlement_cash_entries c WHERE id > $1 ORDER BY id LIMIT $2`)))
 	group.POST("/cash-entries", apihttp.Body(s.postCash))
 	group.GET("/cash-entries/:id", apihttp.ID(s.cash))
 	group.POST("/allocations", apihttp.Body(s.allocate))
@@ -125,6 +129,9 @@ func (s service) statement(ctx context.Context, id int64) (json.RawMessage, erro
 	return store.JSON(ctx, s.db, `
 		SELECT to_jsonb(s) || jsonb_build_object('lines', coalesce(
 			(SELECT jsonb_agg(l ORDER BY l.id) FROM settlement_statement_lines l WHERE l.statement_id = s.id), '[]'),
+			'allocations', coalesce((SELECT jsonb_agg(jsonb_build_object(
+				'id', a.id, 'statement_id', a.statement_id, 'cash_entry_id', a.cash_entry_id, 'amount_minor', a.amount_minor)
+				ORDER BY a.id) FROM settlement_allocations a WHERE a.statement_id = s.id), '[]'),
 			'remaining_minor', s.amount_minor - coalesce(
 				(SELECT sum(a.amount_minor) FROM settlement_allocations a WHERE a.statement_id = s.id), 0))
 		FROM settlement_statements s WHERE s.id = $1`, id)
@@ -148,7 +155,10 @@ func (s service) postCash(ctx context.Context, input cashInput) (store.ID, error
 
 func (s service) cash(ctx context.Context, id int64) (json.RawMessage, error) {
 	return store.JSON(ctx, s.db, `
-		SELECT to_jsonb(c) || jsonb_build_object('remaining_minor', c.amount_minor - coalesce(
+		SELECT to_jsonb(c) || jsonb_build_object('allocations', coalesce((SELECT jsonb_agg(jsonb_build_object(
+				'id', a.id, 'statement_id', a.statement_id, 'cash_entry_id', a.cash_entry_id, 'amount_minor', a.amount_minor)
+				ORDER BY a.id) FROM settlement_allocations a WHERE a.cash_entry_id = c.id), '[]'),
+			'remaining_minor', c.amount_minor - coalesce(
 			(SELECT sum(a.amount_minor) FROM settlement_allocations a WHERE a.cash_entry_id = c.id), 0))
 		FROM settlement_cash_entries c WHERE c.id = $1`, id)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/shyun-cc/lathe-base/apps/api/internal/module/invoice"
 	"github.com/shyun-cc/lathe-base/apps/api/internal/module/master"
 	"github.com/shyun-cc/lathe-base/apps/api/internal/module/outsource"
+	"github.com/shyun-cc/lathe-base/apps/api/internal/module/printing"
 	"github.com/shyun-cc/lathe-base/apps/api/internal/module/production"
 	"github.com/shyun-cc/lathe-base/apps/api/internal/module/sales"
 	"github.com/shyun-cc/lathe-base/apps/api/internal/module/settlement"
@@ -22,6 +23,9 @@ func bindBusiness(server *ghttp.Server, db *sql.DB, token string) {
 	server.SetClientMaxBodySize(1 << 20)
 	server.Group("/api/v1", func(group *ghttp.RouterGroup) {
 		group.Middleware(apihttp.Authorize(token))
+		group.GET("/session", apihttp.ID(func(context.Context, int64) (map[string]string, error) {
+			return map[string]string{"status": "authenticated"}, nil
+		}))
 		master.Bind(group, db)
 		sales.Bind(group, db)
 		production.Bind(group, db)
@@ -29,6 +33,11 @@ func bindBusiness(server *ghttp.Server, db *sql.DB, token string) {
 		shipping.Bind(group, db)
 		settlement.Bind(group, db)
 		invoice.Bind(group, db)
+		printing.Bind(group, db, map[string]printing.Provider{
+			"sales-order": sales.PrintProvider(db),
+			"shipment":    shipping.PrintProvider(db),
+			"work-order":  production.PrintProvider(db),
+		})
 	})
 }
 
